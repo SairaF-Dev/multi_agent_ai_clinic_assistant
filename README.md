@@ -1,4 +1,4 @@
-# MedCare Clinic — Multi-Agent Clinical Operations Platform
+# MedCare Clinic: Multi-Agent Clinical Operations Platform
 
 **Live Production Deployment:** [https://multiagentaiclinicassistant-production.up.railway.app](https://multiagentaiclinicassistant-production.up.railway.app)  
 **Primary Core Principle:** AI handles administrative and operational friction, while licensed physicians retain clinical authority over diagnoses and treatment orders.
