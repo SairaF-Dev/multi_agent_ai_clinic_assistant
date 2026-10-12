@@ -106,3 +106,4 @@ Patients can upload PDF lab reports or high-resolution photos of test slips:
    - Generates an empathetic explanation in UrduLish:
      > *"Aap ka Fasting Blood Sugar 142 mg/dL aya hai jo normal range (70-100) se zyada hai. Ghabrane ki baat nahi, Dr. Bilal iska jaiza le rahe hain."*
 4. **Doctor Verification Banner:** Explanations clearly state they are subject to attending physician sign-off before finalized care decisions.
+

@@ -38,3 +38,4 @@ Across all user guides, MedCare Clinic strictly maintains two foundational axiom
    - All prescription orders and patient-facing lab explanations pass through mandatory Human-in-the-Loop (HITL) checkpoints.
 2. **Rule-First Safety & Emergency Escalation:**
    - Critical red flags (acute chest pain, sudden dyspnea post-breakfast, stroke signs) bypass language models and trigger immediate emergency alerts with helpline numbers (1122).
+

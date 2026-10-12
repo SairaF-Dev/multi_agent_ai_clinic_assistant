@@ -84,3 +84,4 @@ For patients arriving directly at the clinic without pre-booking:
 If a walk-in patient presents with severe chest pain, acute respiratory distress, or trauma:
 1. Front desk staff can click **"EMERGENCY BYPASS (1122)"**.
 2. This immediately alerts the triage nurse station, activates the clinic's crash cart protocol, and logs an emergency escalation event in the permanent audit trail.
+

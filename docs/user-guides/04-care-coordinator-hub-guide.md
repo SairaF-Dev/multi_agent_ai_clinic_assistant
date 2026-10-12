@@ -89,3 +89,4 @@ For individualized follow-up instructions, the coordinator can compose customize
    - **10h Fasting Prep:** *"Fasting Reminder: Kal subha blood test ke liye 10 ghante ka fast lazmi hai."*
    - **Review Check-in:** *"Assalam-o-Alaikum! Clinic review ke baad tabiyat kaisi hai?"*
 4. **Schedule & Dispatch:** Submits the reminder, saves it to SQLite, and immediately delivers the message.
+

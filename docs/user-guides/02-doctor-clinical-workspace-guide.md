@@ -94,3 +94,4 @@ When prescribing medications, the system evaluates all orders against a rule-bas
 3. **Maximum Daily Dose Limits:** Flags toxic or off-guideline dosages (e.g., Paracetamol > 4000mg/day).
 4. **Duplicate Therapy Detection:** Flags overlapping classes (e.g., prescribing two simultaneous NSAIDs).
 5. **Special Population Warnings:** Renal impairment, pregnancy, paediatric, or geriatric precautions.
+

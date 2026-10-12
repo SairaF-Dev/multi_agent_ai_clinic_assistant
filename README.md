@@ -89,6 +89,7 @@ Comprehensive step-by-step operating guides are provided for each clinical role:
 - 👨‍⚕️ **[Doctor Clinical Workspace Guide](docs/user-guides/02-doctor-clinical-workspace-guide.md)** — Split-screen queue, allergy contraindications, automated SOAP consultation notes, and Human-in-the-Loop (HITL) approval workflows.
 - 👩‍💼 **[Receptionist Command Center Guide](docs/user-guides/03-receptionist-command-center-guide.md)** — Real-time live feed, walk-in registration, triage tags, and live **Manual Chat Takeover / Intercept**.
 - 🩺 **[Care Reminders Hub Guide](docs/user-guides/04-care-coordinator-hub-guide.md)** — Medication adherence monitoring, pre-draw lab fasting alerts, omnichannel batch dispatch (Resend Email API + WhatsApp), and Early Warning Safety Net escalations.
+- 🛠️ **[Operations & Maintenance Runbook](docs/runbook.md)** — Architecture diagrams, `.env` specification, execution commands (FastAPI, Streamlit, Docker), automated test verification, incident troubleshooting, and enterprise roadmap.
 
 ---
 
