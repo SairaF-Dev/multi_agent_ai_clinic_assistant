@@ -549,6 +549,17 @@ Write ONLY the warm conversational Roman Urdu reply for {next_target}. Keep it c
         ], temperature=0.15, max_tokens=150)
 
         reply = res.get("content", "").strip()
+        if not reply or res.get("status") == "ERROR" or reply.startswith("LLM API Error"):
+            fallbacks = {
+                "DURATION": "Assalam-o-Alaikum! Yeh takleef ya alamaat aap ko kitne arse se hain? (Jaise 2 din ya aik hafta)",
+                "SEVERITY": "Aap ka dard ya takleef 1 se 10 ke paimane par kitni shadeed hai? (1 halki, 10 shadeed)",
+                "ASSOCIATED_SYMPTOMS": "Kya is ke ilawa koi aur alamaat bhi hain, jaise gale mein dard, sar dard ya vomiting?",
+                "ALLERGIES": "Kya aap ko kisi dawai ya cheez se allergy hai? (Jaise Penicillin, Aspirin ya koi allergy nahi)",
+                "CURRENT_MEDICATIONS": "Kya aap is waqt koi dawai ya ghareloo nuskha istemal kar rahe hain?",
+                "MEDICATION_DETAILS": "Barah-e-karam batayein dawai ka naam aur rozana kitni martaba lete hain?",
+            }
+            reply = fallbacks.get(next_target, "Barah-e-karam apni alamaat ke bare mein mazeed thori tafseel batayein.")
+
         state["conversation_history"].append({"sender": "Patient", "text": user_message})
         state["conversation_history"].append({"sender": "AI", "text": reply})
         return reply, state, False

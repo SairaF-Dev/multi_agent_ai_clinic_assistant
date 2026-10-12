@@ -49,9 +49,9 @@ class LLMClient:
         self.openrouter_url = base_url
 
         configured_model = (model_name or os.getenv("LLM_MODEL_NAME") or "openai/gpt-4o-mini").strip().strip("'").strip('"')
-        # Ensure fast, reliable production model
-        if "free" in configured_model.lower():
-            self.default_model = "openai/gpt-4o-mini"
+        # Auto-map deprecated OpenRouter experimental models to working live models
+        if "gemini" in configured_model.lower() and "free" in configured_model.lower():
+            self.default_model = "nvidia/nemotron-3.5-lightning:free"
         else:
             self.default_model = configured_model
 
@@ -81,35 +81,45 @@ class LLMClient:
             "X-Title": "City Care Clinics Assistant"
         }
 
-        payload = {
-            "model": self.default_model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens
-        }
+        # Try configured model, fallback to gpt-4o-mini if free model rate-limits or fails
+        models_to_try = [self.default_model]
+        if self.default_model != "openai/gpt-4o-mini":
+            models_to_try.append("openai/gpt-4o-mini")
 
-        try:
-            req = urllib.request.Request(
-                self.openrouter_url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers=headers,
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                choice = data["choices"][0]["message"]["content"]
-                return {
-                    "status": "SUCCESS",
-                    "content": choice,
-                    "model": data.get("model", self.default_model),
-                    "usage": data.get("usage", {})
-                }
-        except Exception as e:
-            return {
-                "status": "ERROR",
-                "content": f"LLM API Error: {str(e)}",
-                "model": self.default_model
+        last_error = ""
+        for model in models_to_try:
+            payload = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens
             }
+
+            try:
+                req = urllib.request.Request(
+                    self.openrouter_url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    choice = data["choices"][0]["message"]["content"]
+                    return {
+                        "status": "SUCCESS",
+                        "content": choice,
+                        "model": data.get("model", model),
+                        "usage": data.get("usage", {})
+                    }
+            except Exception as e:
+                last_error = str(e)
+                continue
+
+        return {
+            "status": "ERROR",
+            "content": f"LLM API Error: {last_error}",
+            "model": self.default_model
+        }
 
 if __name__ == "__main__":
     client = LLMClient()

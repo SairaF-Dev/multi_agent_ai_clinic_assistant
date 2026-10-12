@@ -270,6 +270,43 @@ def health_check():
         }
     }
 
+@app.get("/api/admin/llm-status")
+def llm_status_check():
+    import urllib.request
+    from src.tools.llm_client import LLMClient
+    client = LLMClient()
+    raw_key = client.openrouter_api_key or ""
+    masked_key = (raw_key[:10] + "..." + raw_key[-4:]) if len(raw_key) > 14 else ("NOT_SET" if not raw_key else "TOO_SHORT")
+    
+    probe_result = "NOT_TESTED"
+    if raw_key and "your_openrouter_key" not in raw_key.lower():
+        try:
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/auth/key",
+                headers={"Authorization": f"Bearer {raw_key}"}
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                probe_data = json.loads(resp.read().decode("utf-8"))
+                key_info = probe_data.get("data", {})
+                probe_result = {
+                    "valid": True,
+                    "is_free_tier": key_info.get("is_free_tier"),
+                    "free_requests_remaining": key_info.get("free_model_daily_requests", {}).get("remaining"),
+                    "usage_usd": key_info.get("usage")
+                }
+        except urllib.error.HTTPError as e:
+            probe_result = {"valid": False, "http_code": e.code, "error": str(e)}
+        except Exception as e:
+            probe_result = {"valid": False, "error": str(e)}
+
+    return {
+        "configured_model": client.default_model,
+        "endpoint": client.openrouter_url,
+        "key_configured": bool(raw_key and "your_openrouter_key" not in raw_key.lower()),
+        "key_masked": masked_key,
+        "openrouter_auth_probe": probe_result
+    }
+
 # ==============================================================================
 # 2. AUTHENTICATION & DEMO PERSONAS
 # ==============================================================================
