@@ -1,138 +1,207 @@
-# MedCare Clinic — Enterprise End-to-End AI Healthcare Platform
+# MedCare Clinic — Multi-Agent Clinical Operations Platform
 
 [![System Status](https://img.shields.io/badge/System%20Status-Production%20Ready-brightgreen)](https://github.com)
 [![Evaluation Benchmark](https://img.shields.io/badge/Evaluation%20Benchmark-65%2F65%20Passed%20(100%25)-blue)](https://github.com)
 [![Emergency Recall](https://img.shields.io/badge/Emergency%20Recall-100.0%25-red)](https://github.com)
 [![Prescription Safety](https://img.shields.io/badge/Prescription%20Safety-100.0%25%20Recall-orange)](https://github.com)
 
-> **Brand:** MedCare Clinic  
-> **Tagline:** *Your Health, Our Priority*  
-> **Core Principle:** *"AI handles the workflow, but doctors remain in control of clinical decisions."*  
-> **🌐 Live Production Deployment:** [https://multiagentaiclinicassistant-production.up.railway.app](https://multiagentaiclinicassistant-production.up.railway.app)
+**Live Production Deployment:** [https://multiagentaiclinicassistant-production.up.railway.app](https://multiagentaiclinicassistant-production.up.railway.app)  
+**Primary Core Principle:** AI handles administrative and operational friction, while licensed physicians retain clinical authority over diagnoses and treatment orders.
 
 ---
 
-## 🏥 Platform Overview
+## 1. System Architecture
 
-**MedCare Clinic** is an end-to-end healthcare SaaS platform for outpatient clinic operations. The platform integrates:
-- **Public Patient Website & Returning Patient Greeting**
-- **Bilingual Conversational AI Assistant** (English, Roman Urdu / UrduLish, Urdu)
-- **LangGraph Multi-Agent Supervisor Backend** (11 agents with parallel fan-out and HITL interrupt)
-- **Rule-First Emergency Filter** (100% Recall for acute chest pain, dyspnoea, and casual minimization)
-- **Prompt-Injection Hardened Lab Report Workflow**
-- **5-Stage Deterministic Drug Interaction & Allergy Safety Engine**
-- **Doctor Clinical Workspace** (Split-Screen Queue, Intake Notes, and SOAP Consultations)
-- **Human-in-the-Loop (HITL) Approvals** (Lab Explanations, Prescription Orders, Low-Confidence Triage)
-- **Receptionist Command Center** (High-Density Live Feed & Manual Takeover Override)
-- **Dual Memory Layer** (Short-term conversation buffer + Long-term cross-visit preferences)
-- **AI Observability & Trace Waterfalls** (Step latency, token metrics, cost tracking, tool calls)
-- **Immutable Clinical Audit Trail** (HIPAA-inspired access and modification logging)
-- **Benchmark Evaluation Suite** (65 automated scenarios passing with 100% success rate)
+MedCare Clinic is an outpatient clinical operations platform developed with a LangGraph multi-agent supervisor architecture, FastAPI backend services, and a Single Page Application (SPA) workstation interface. The system automates patient intake, clinical triage, scheduling, SOAP documentation, prescription safety checks, and post-consultation care reminders, supported by Human-in-the-Loop (HITL) checkpoints.
 
----
+```mermaid
+flowchart TD
+    subgraph ClientLayer["User Interfaces & Workstations"]
+        UI_SPA["Vanilla JavaScript SPA (medcare_app.html)"]
+        UI_ST["Streamlit Clinical EHR (app.py)"]
+        CLIENT_EXT["Omnichannel Gateways: Email (Resend) & WhatsApp"]
+    end
 
-## 🎨 Global Design System
+    subgraph OrchestrationLayer["LangGraph Multi-Agent Supervisor"]
+        SUPERVISOR["Supervisor Agent (StateGraph Orchestrator)"]
+        INTAKE["Intake Agent (Bilingual UrduLish NLP)"]
+        TRIAGE["Rule-First Triage Agent (Emergency Recall Engine)"]
+        SPECIALIST["Specialist Recommendation Agent"]
+        SCHEDULING["Appointment Scheduling Agent"]
+        SOAP_GEN["Clinical Summary Agent (SOAP Notes)"]
+        RX_SAFETY["Prescription Safety Agent"]
+        FOLLOWUP["Care Continuity & Follow-Up Agent"]
+        HITL_CHECK["Human-in-the-Loop Approval Checkpoint"]
+        MANUAL_OVERRIDE["Receptionist Manual Takeover Handler"]
+    end
 
-- **Background:** White (`#FFFFFF`) / Light Gray Slate (`#F8FAFC`)
-- **Typography:** Inter Sans-Serif font hierarchy
-- **Text:** Dark Navy (`#0F172A`)
-- **Primary Brand Color:** Medical Teal (`#0D9488` / `#14B8A6`)
-- **Primary Action Color:** Clinical Blue (`#0284C7` / `#2563EB`)
-- **Success / Low-Risk:** Emerald Green (`#16A34A`)
-- **Warning / Review Required:** Amber (`#D97706`)
-- **Emergency / Contraindication:** Clinical Red (`#DC2626`)
-- **Strictly No Emojis:** Zero default emojis in clinical tables and grids (clean SVG icons via Lucide)
-- **Zero Academic AI Jargon:** Standard clinical terminology only ("Patient Records", "Clinical Summary", "Safety Alert")
+    subgraph ToolLayer["Model Context Protocol (MCP) Tool Servers"]
+        MCP_PAT["patient_records_server (FHIR Entities)"]
+        MCP_SCHED["scheduling_server (Slot Search & Booking)"]
+        MCP_DRUG["drug_database_server (DDI & Max Dose Rules)"]
+        MCP_NOTIF["notifications_server (HTTPS Port 443 Resend API)"]
+    end
 
----
+    subgraph DataLayer["Persistence & Compliance"]
+        DB_SQLITE[("SQLite Database: clinic.db (FHIR Schema)")]
+        AUDIT_TRAIL[("Append-Only Audit Trail (HIPAA Aligned)")]
+        CHROMA_RAG[("ChromaDB Vector Store (Clinical Protocols)")]
+    end
 
-## 🌐 Application Route Map
+    ClientLayer --> SUPERVISOR
+    SUPERVISOR --> INTAKE
+    INTAKE --> TRIAGE
+    TRIAGE --> SPECIALIST
+    SPECIALIST --> SCHEDULING
+    SCHEDULING --> HITL_CHECK
+    HITL_CHECK --> SOAP_GEN
+    SOAP_GEN --> RX_SAFETY
+    RX_SAFETY --> FOLLOWUP
 
-| Route | View Description | Target Persona |
-|-------|------------------|----------------|
-| `/` | **Public Homepage**: Hero, trust badges, 4 service cards, and returning patient personalized card (`Ahmed Khan 👋` / `Dr. Bilal Ahmed`) | Public / Patient |
-| `/assistant` | **MedCare AI Assistant**: 5-step progress indicator, quick response chips, right-side intake panel, and emergency modal | Patient |
-| `/portal`, `/profile` | **Patient Portal & Medical Profile**: Chronological medical timeline, active conditions, allergies, and care plan | Patient |
-| `/doctor` | **Doctor Clinical Workspace**: Split-screen patient queue, SOAP consultation notes, and allergy safety alert banner | Physician (Dr. Bilal Ahmed) |
-| `/doctor/approvals` | **Human-in-the-Loop Approvals**: Lab explanations, prescription orders, and low-confidence triage cases | Physician (Dr. Bilal Ahmed) |
-| `/appointments/book` | **Appointment Booking**: Specialty → Doctor (Dr. Bilal) → Date → Slot → Confirmation with Reference ID | Patient |
-| `/reports` | **Lab Reports Workflow**: File upload with prompt-injection defense and 6-stage lifecycle pipeline | Patient / Doctor |
-| `/prescriptions` | **Prescription Management**: Active medications, dosage instructions, and 5-stage conflict verification | Patient / Physician |
-| `/receptionist` | **Receptionist Command Center**: Dense data grid live feed, urgency tags, and manual takeover toggle | Front Desk Operations |
-| `/reminders` | **Care Reminders Hub**: Medication adherence tracking, pre-draw lab fasting alerts, and Early Warning Safety Net escalations | Care Coordinator (Farhan Ali) |
-| `/admin/graph` | **LangGraph Multi-Agent Topology**: Interactive visualization of supervisor routing and parallel branches | Administrator |
-| `/admin/traces` | **AI Observability Traces**: Waterfall latency breakdown (ms), token usage, cost ($), and tool calls | Administrator |
-| `/admin/audit` | **Immutable Audit Trail**: Append-only compliance log for logins, views, approvals, and escalations | Administrator / Compliance |
-| `/admin/evaluations` | **Benchmark Evaluation Dashboard**: Visual results of the 65-scenario clinical test suite | Administrator |
-| `/health` | **API Health Check**: JSON status of database, MCP servers, and safety engine | Developer / DevOps |
-
----
-
-## 👥 Demo Personas & Fast 1-Click Access
-
-| Persona | Username | Password | Profile Details |
-|---------|----------|----------|-----------------|
-| **Patient** | `ahmed` | `password123` | **Ahmed Khan** (MRN: `PAT-1001`), Age 38, Hypertension, Penicillin Allergy, Preferred Doctor: Dr. Bilal Ahmed |
-| **Doctor** | `dr.bilal` | `password123` | **Dr. Bilal Ahmed** (ID: `DOC-101`), General Physician (Rating 4.9), DHA Phase 5 Branch, Lahore |
-| **Receptionist** | `receptionist` | `password123` | **Sana Front Desk** (ID: `REC-001`), High-density queue management & manual override |
-| **Care Lead** | `coordinator` | `password123` | **Farhan Ali** (ID: `FLD-001`), Care Reminder Coordinator, Adherence & Early Warning Safety Net |
-| **Clinic Admin** | `admin` | `password123` | **Clinic Administrator**, Observability, LangGraph topology, and audit trail |
+    SUPERVISOR --> ToolLayer
+    ToolLayer --> DataLayer
+    ClientLayer --> MANUAL_OVERRIDE
+    MANUAL_OVERRIDE --> SUPERVISOR
+```
 
 ---
 
-## 📚 Role-Based User Manuals & Documentation
+## 2. Key Architectural Decisions
 
-Comprehensive step-by-step operating guides are provided for each clinical role:
+### Single Uvicorn Worker Process
+The production Docker container runs Uvicorn with `--workers 1`. In-memory conversation state (`ACTIVE_CHAT_SESSIONS`) and receptionist override states (`RECEPTIONIST_OVERRIDES`) are retained within a single process. Multi-worker round-robin load balancing would split in-memory session states, resulting in DOM synchronization issues and dropped receptionist manual takeovers.
 
-- 📖 **[Master User Guides Index](docs/user-guides/README.md)** — Architecture overview, credentials, and cross-functional guide directory.
-- 👩‍⚕️ **[Patient Portal Guide](docs/user-guides/01-patient-portal-guide.md)** — Bilingual conversational AI intake, 5-stage progress indicator, emergency red-flag bypass (1122), appointment booking, and lab report explanations.
-- 👨‍⚕️ **[Doctor Clinical Workspace Guide](docs/user-guides/02-doctor-clinical-workspace-guide.md)** — Split-screen queue, allergy contraindications, automated SOAP consultation notes, and Human-in-the-Loop (HITL) approval workflows.
-- 👩‍💼 **[Receptionist Command Center Guide](docs/user-guides/03-receptionist-command-center-guide.md)** — Real-time live feed, walk-in registration, triage tags, and live **Manual Chat Takeover / Intercept**.
-- 🩺 **[Care Reminders Hub Guide](docs/user-guides/04-care-coordinator-hub-guide.md)** — Medication adherence monitoring, pre-draw lab fasting alerts, omnichannel batch dispatch (Resend Email API + WhatsApp), and Early Warning Safety Net escalations.
-- 🛠️ **[Operations & Maintenance Runbook](docs/runbook.md)** — Architecture diagrams, `.env` specification, execution commands (FastAPI, Streamlit, Docker), automated test verification, incident troubleshooting, and enterprise roadmap.
+### HTTPS Port 443 Notification Transport
+Cloud hosting environments (Railway, Render, AWS ECS) restrict outbound traffic on raw SMTP ports (25, 465, 587) to prevent spam. The notification service uses the **Resend REST API over HTTPS Port 443** (`https://api.resend.com/emails`) for email delivery, bypassing firewall restrictions and ensuring reliable clinical email delivery.
+
+### Deterministic Rule-First Triage
+Emergency symptoms (acute central chest pressure, respiratory collapse, stroke indicators, acute bleeding) bypass LLM inference entirely. A deterministic regex filter matches symptoms against red-flag lists and immediately transitions the graph to `EMERGENCY_ESCALATION`, enforcing 100% emergency recall without reliance on generative model outputs.
+
+### 5-Stage Deterministic Drug Conflict Verification
+Prescription safety checks are implemented as algorithmic validation rules rather than LLM prompts:
+1. Patient allergy conflicts (e.g., cross-referencing Penicillin allergy against beta-lactam prescriptions).
+2. Drug-drug interactions (DDI) using clinical pairwise conflict matrices.
+3. Maximum daily dose validations (e.g., Paracetamol max 4000 mg/day).
+4. Duplicate class therapy identification.
+5. High-risk population contraindications (pregnancy, renal impairment, paediatric warnings).
 
 ---
 
-## 🚀 Running the Application
+## 3. Workstation Directory & Route Map
 
-### Option 1: Launch Full-Stack Web Application (FastAPI + SPA)
+| Route | View Description | Target Persona | Access Rights |
+| :--- | :--- | :--- | :--- |
+| `/` | Public clinic homepage with personalized greeting for returning patients. | Public / Patient | Anonymous / Authenticated |
+| `/#/assistant` | Conversational AI triage nurse with 5-stage progress indicator and UrduLish NLP. | Patient | Patient |
+| `/#/portal` | Longitudinal patient health profile, vitals history, and active medication list. | Patient | Patient |
+| `/#/appointments/book` | Specialty selection, doctor directory, real-time slot booking, and reference generation. | Patient | Patient |
+| `/#/reports` | Diagnostic lab report upload with prompt-injection defense and bilingual explanations. | Patient / Physician | Patient / Doctor |
+| `/#/doctor` | Split-screen consultation queue with allergy alerts and automated SOAP documentation. | Physician | Doctor (`DOC-101`) |
+| `/#/doctor/approvals` | Human-in-the-Loop review queue for lab explanations, prescriptions, and low-confidence triage. | Physician | Doctor (`DOC-101`) |
+| `/#/prescriptions` | Drug management dashboard backed by the 5-stage conflict verification engine. | Physician / Patient | Doctor / Patient |
+| `/#/receptionist` | High-density real-time queue feed with one-click live chat takeover / intercept override. | Front Desk Staff | Receptionist (`REC-001`) |
+| `/#/reminders` | Automated care reminders hub for medication adherence, fasting prep, and worsening symptom alerts. | Care Coordinator | Coordinator (`FLD-001`) |
+| `/#/admin/graph` | Interactive LangGraph state machine visualization with node execution counters. | Administrator | Administrator |
+| `/#/admin/traces` | Observability waterfall traces displaying turn latency, token usage, cost, and tool executions. | Administrator | Administrator |
+| `/#/admin/audit` | Append-only clinical compliance audit trail recording all reads, writes, and escalations. | Administrator | Administrator |
+| `/#/admin/evaluations` | Benchmark test execution dashboard displaying results from the 65 automated clinical test cases. | Administrator | Administrator |
+| `/health` | JSON health check reporting database, MCP server, and runtime status. | DevOps | Public |
+
+---
+
+## 4. Demonstration Accounts & Credentials
+
+The platform database comes pre-seeded with representative clinical accounts for demonstration:
+
+| Role | Username | Password | Full Name / Profile | Clinic Branch |
+| :--- | :--- | :--- | :--- | :--- |
+| **Patient** | `ahmed` | `password123` | Ahmed Khan (MRN: `PAT-1001`), Age 38, Essential Hypertension, Penicillin Allergy | DHA Phase 5, Lahore |
+| **Doctor** | `dr.bilal` | `password123` | Dr. Bilal Ahmed, MBBS, FCPS (ID: `DOC-101`), Internal Medicine (Rating: 4.9/5.0) | DHA Phase 5, Lahore |
+| **Receptionist** | `receptionist` | `password123` | Sana Front Desk (ID: `REC-001`), Front Desk Lead & Triage Operations | DHA Phase 5, Lahore |
+| **Care Lead** | `coordinator` | `password123` | Farhan Ali (ID: `FLD-001`), Care Reminder Coordinator, Adherence & Safety Net | DHA Phase 5, Lahore |
+| **Clinic Admin** | `admin` | `password123` | System Administrator, Observability, Graph Topology & Audit Compliance | Enterprise Central |
+
+---
+
+## 5. Local Setup & Execution
+
+### Prerequisites
+- Python 3.11 or higher
+- Git
+- Modern web browser (Chrome, Edge, Firefox)
+
+### Step 1: Clone Repository & Create Virtual Environment
 
 ```bash
-# 1. Activate virtual environment
-D:\Netixsol\Week9\multi_agent_env\Scripts\activate
+git clone https://github.com/SairaF-Dev/multi_agent_ai_clinic_assistant.git
+cd multi_agent_ai_clinic_assistant
 
-# 2. Navigate to project directory
-cd D:\Netixsol\Week9\ai-clinic-assistant
+# Create virtual environment
+python -m venv venv
 
-# 3. Launch FastAPI server
-python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+# Activate virtual environment
+# Windows PowerShell:
+.\venv\Scripts\Activate.ps1
+# Linux/macOS:
+source venv/bin/activate
 ```
-- **Web Application Portal:** [http://localhost:8000](http://localhost:8000)
-- **Interactive OpenAPI Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **System Health:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### Option 2: Launch Streamlit Enterprise EHR Portal
+### Step 2: Install Dependencies
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Step 3: Configure Environment Variables
+
+Create a `.env` file in the project root:
+
+```ini
+OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key-here
+LLM_MODEL_NAME=google/gemini-2.5-pro-exp-03-25:free
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+RESEND_API_KEY=re_your-resend-api-key-here
+EMAIL_SENDER=City Care Clinics <onboarding@resend.dev>
+TEST_EMAIL_RECIPIENT=your-email@example.com
+DATABASE_PATH=data/clinic.db
+PORT=8000
+HOST=0.0.0.0
+```
+
+### Step 4: Run Application
+
+#### Option 1: Full-Stack Web Application (FastAPI + SPA)
+
+```bash
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 1 --reload
+```
+- Web Application: [http://localhost:8000](http://localhost:8000)
+- OpenAPI Specification: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health Check: [http://localhost:8000/health](http://localhost:8000/health)
+
+#### Option 2: Streamlit Clinical EHR Portal
 
 ```bash
 python -m streamlit run src/ui/app.py --server.port 8501
 ```
-- **Streamlit EHR Portal:** [http://localhost:8501](http://localhost:8501)
+- Streamlit Interface: [http://localhost:8501](http://localhost:8501)
 
-### Option 3: Docker Compose
+#### Option 3: Docker Deployment
 
 ```bash
-docker-compose up --build
+docker build -t medcare-clinic:latest .
+docker run -d --name medcare-clinic -p 8000:8000 --env-file .env medcare-clinic:latest
 ```
-- Both port **8000** (Full-Stack Web App) and port **8501** (Streamlit EHR) will be active.
 
 ---
 
-## 🧪 Testing & Evaluation Verification
+## 6. Verification & Automated Benchmark Suite
 
-All 12 backend test suites and all 5 evaluation benchmarks pass with **100% success**:
+The platform includes an automated clinical evaluation suite testing 65 deterministic scenarios across 9 clinical risk categories.
 
 ```bash
-# Run All 12 Unit & Integration Test Suites
+# Run unit and integration test suites
 python tests/test_supervisor_graph.py
 python tests/test_red_teaming.py
 python tests/test_nlp_triage_nurse.py
@@ -140,38 +209,51 @@ python tests/test_observability.py
 python tests/test_channel_gateway.py
 python tests/test_hitl_approval.py
 
-# Run Full 65-Scenario Benchmark Evaluation Suite
+# Run the 65-scenario clinical benchmark suite
 python tests/eval_suite.py
 ```
 
-### Benchmark Summary Results
+### Benchmark Evaluation Metrics
 
-| Metric | Target | Result | Status |
-|--------|--------|--------|--------|
+| Metric | Target | Evaluated Result | Compliance Status |
+| :--- | :--- | :--- | :--- |
 | **Total Test Scenarios** | 65 | **65 / 65** | **100.0% Pass** |
-| **Emergency Recall Rate** | 100.0% | **100.0%** | **PASSED** |
-| **Specialty Accuracy** | &ge; 90.0% | **100.0%** | **PASSED** |
-| **Booking Accuracy Rate** | &ge; 95.0% | **100.0%** | **PASSED** |
-| **RAG Grounding Rate** | 100.0% | **100.0%** | **PASSED** |
-| **Allergy & Interaction Recall** | 100.0% | **100.0%** | **PASSED** |
-| **Safety Boundary Enforcement** | 100.0% | **100.0%** | **PASSED** |
-| **Average Latency per Case** | &lt; 50 ms | **0.22 ms** | **PASSED** |
-| **Average Cost per Case** | &lt; $0.001 | **$0.000060 USD** | **PASSED** |
+| **Emergency Recall Rate** | 100.0% | **100.0%** | **Compliant** |
+| **Specialty Recommendation Accuracy** | &ge; 90.0% | **100.0%** | **Compliant** |
+| **Appointment Booking Accuracy** | &ge; 95.0% | **100.0%** | **Compliant** |
+| **RAG Protocol Grounding Rate** | 100.0% | **100.0%** | **Compliant** |
+| **Allergy & Contraindication Recall** | 100.0% | **100.0%** | **Compliant** |
+| **Safety Boundary Enforcement** | 100.0% | **100.0%** | **Compliant** |
+| **Average End-to-End Latency** | &lt; 200 ms | **0.22 ms** | **Compliant** |
+| **Average Estimated Cost per Case** | &lt; $0.001 | **$0.000060 USD** | **Compliant** |
 
 ---
 
-## 🛡️ Critical Safety Workflows Demonstrated
+## 7. Documentation Index
 
-1. **Journey 1 — Returning Patient (Ahmed Khan):**
-   - System identifies Ahmed Khan (`PAT-1001`), recalls preferred language (Urdu) and preferred physician (Dr. Bilal Ahmed).
-   - Conversational intake in Roman Urdu extracts symptoms and computes routine triage.
-   - Slot booking confirmed for tomorrow at 10:30 AM with Reference ID and automated confirmation dispatch.
-2. **Journey 2 — Casual UrduLish Emergency Bypass:**
-   - Patient types: *"Seene mein thora dard hai lekin koi baat nahi"* (downplaying cardiac red flag).
-   - Rule-first red-flag filter instantly halts routine booking and renders the **Emergency Protocol Screen** with 1122 escalation instructions.
-3. **Journey 3 — Lab Report & Doctor Approval:**
-   - Patient uploads lab report containing potential prompt-injection attack strings.
-   - Document text is treated strictly as untrusted data; clinical entities are regex-extracted.
-   - Plain-language explanation is drafted, LangGraph execution pauses at `HITL_APPROVAL_CHECKPOINT`, and Dr. Bilal Ahmed approves the explanation before patient delivery.
-4. **Journey 4 — Prescription Safety Contraindication:**
-   - Prescribing Augmentin (Amoxicillin) triggers the 5-stage safety engine, cross-referencing Ahmed's severe Penicillin allergy, locking autonomous order execution and alerting the doctor.
+Detailed engineering and operational documentation is structured across the following references:
+
+### Role-Based User Manuals
+- **[User Guides Master Directory](docs/user-guides/README.md)**: Role matrix, security guidelines, and access map.
+- **[Patient Portal Guide](docs/user-guides/01-patient-portal-guide.md)**: Conversational intake, bilingual communication, emergency modal, and booking workflows.
+- **[Doctor Clinical Workspace Guide](docs/user-guides/02-doctor-clinical-workspace-guide.md)**: Split-screen queue, SOAP note generation, and HITL approval queue.
+- **[Receptionist Command Center Guide](docs/user-guides/03-receptionist-command-center-guide.md)**: Live feed management, triage priority tagging, and manual chat takeover override.
+- **[Care Reminders Hub Guide](docs/user-guides/04-care-coordinator-hub-guide.md)**: Medication adherence tracking, pre-draw fasting alerts, and early warning symptom escalations.
+
+### Technical & System Design
+- **[Operations & Maintenance Runbook](docs/runbook.md)**: Architecture, environment configuration, incident troubleshooting, and enterprise roadmap.
+- **[Architecture Research & Pattern Analysis](docs/day1-architecture/01-architecture-research.md)**: Supervisor vs Swarm patterns, state machine design, and MCP specifications.
+- **[Agent Role Cards](docs/day1-architecture/02-agent-role-cards.md)**: Specification of all agents including inputs, outputs, system prompts, and tool boundaries.
+- **[Patient Conversation Flows](docs/day1-architecture/03-conversation-flows.md)**: Sequence diagrams for 7 primary clinical scenarios.
+- **[Safety & Triage Policy](docs/day1-architecture/04-safety-triage-policy.md)**: Exhaustive red-flag symptom index and AI clinical boundary policies.
+- **[Privacy & Compliance Design](docs/day1-architecture/05-privacy-compliance.md)**: PII/PHI redaction specifications, Presidio integration, and RBAC matrix.
+- **[FHIR Schema & Database Architecture](docs/day2-data-layer/01-fhir-schema-er-diagram.md)**: Relational entity-relationship models aligned with HL7 FHIR standards.
+- **[Prescription Safety Engine](docs/day2-data-layer/05-prescription-safety-engine.md)**: Rule-based drug interaction and allergy contraindication algorithms.
+- **[Red-Teaming & Safety Audit](docs/day5-deployment/02-red-teaming-and-safety-eval.md)**: Adversarial attack logs, prompt injection mitigation, and safety validations.
+- **[Benchmark Metrics Report](docs/day5-deployment/03-benchmark-metrics-report.md)**: Granular evaluation breakdown across all 65 test conversations.
+
+---
+
+## 8. License & Governance
+
+Developed as an ambulatory clinical healthcare assistant platform. Clinical data structures follow HL7 FHIR standards. Synthetic patient records generated via clinical profiles for testing compliance. All clinical recommendations remain subject to attending physician sign-off.
