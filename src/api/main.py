@@ -2282,10 +2282,20 @@ def get_receptionist_feed():
         "server_time": datetime.datetime.now().strftime("%I:%M:%S %p")
     }
 
+class ReceptionistOverrideRequest(BaseModel):
+    patient_id: str
+    action: Optional[str] = None
+
 @app.post("/api/receptionist/override")
-def toggle_receptionist_override(patient_id: str = Body(..., embed=True)):
+def toggle_receptionist_override(req: ReceptionistOverrideRequest):
+    patient_id = req.patient_id
     current = RECEPTIONIST_OVERRIDES.get(patient_id, False)
-    new_state = not current
+    if req.action == "enable":
+        new_state = True
+    elif req.action == "release":
+        new_state = False
+    else:
+        new_state = not current
     RECEPTIONIST_OVERRIDES[patient_id] = new_state
     
     session_id = f"SESS-{patient_id}"

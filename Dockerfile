@@ -35,6 +35,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl --fail http://localhost:${PORT:-8000}/health || exit 1
 
-# Run FastAPI & SPA with production Uvicorn workers (dynamically adapts to Railway $PORT)
-CMD ["sh", "-c", "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]
+# Run FastAPI & SPA with production Uvicorn worker (dynamically adapts to Railway $PORT)
+CMD ["sh", "-c", "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
 

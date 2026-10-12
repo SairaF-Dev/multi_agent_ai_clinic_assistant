@@ -1300,7 +1300,7 @@
 
           if (state.route === '/receptionist') {
             const container = document.getElementById('appContainer');
-            if (container) {
+            if (container && !document.getElementById('receptionistChatModal')) {
               container.innerHTML = renderReceptionistPage();
               if (window.lucide) lucide.createIcons();
             }
@@ -5729,7 +5729,7 @@ ESR                12          mm/hr      0 - 15
         await fetch('/api/receptionist/override', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patient_id: patientId })
+          body: JSON.stringify({ patient_id: patientId, action: 'enable' })
         });
         showToast(`Manual takeover active for ${patientName}. Opening Live Chat Console...`, 'warning');
         await syncReceptionistFeedFromApi();
@@ -5753,13 +5753,13 @@ ESR                12          mm/hr      0 - 15
       // Initial message fetch
       await fetchReceptionistChatMessages(patientId);
 
-      // 1.5-second live polling while modal is open
+      // Smooth 3-second live polling while modal is open
       if (state.receptionistChatInterval) clearInterval(state.receptionistChatInterval);
       state.receptionistChatInterval = setInterval(() => {
         if (state.receptionistActiveChat && state.receptionistActiveChat.patientId === patientId) {
           fetchReceptionistChatMessages(patientId, true);
         }
-      }, 1500);
+      }, 3000);
     }
 
     function closeReceptionistChatModal() {
@@ -5777,7 +5777,7 @@ ESR                12          mm/hr      0 - 15
         await fetch('/api/receptionist/override', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patient_id: patientId })
+          body: JSON.stringify({ patient_id: patientId, action: 'release' })
         });
         showToast(`Override released for ${patientId}. AI autonomous assistance resumed.`, 'info');
         closeReceptionistChatModal();
@@ -5793,10 +5793,12 @@ ESR                12          mm/hr      0 - 15
         if (res.ok) {
           const data = await res.json();
           if (state.receptionistActiveChat && state.receptionistActiveChat.patientId === patientId) {
-            const prevCount = state.receptionistActiveChat.messages.length;
-            state.receptionistActiveChat.messages = data.messages || [];
-            updateReceptionistChatMessagesUi();
-            if (data.messages.length > prevCount) {
+            const prevCount = (state.receptionistActiveChat.messages || []).length;
+            const newMsgs = data.messages || [];
+            // ONLY update UI if message count changed (prevents flicker and cursor jump)
+            if (newMsgs.length !== prevCount) {
+              state.receptionistActiveChat.messages = newMsgs;
+              updateReceptionistChatMessagesUi();
               scrollRecChatToBottom();
             }
           }
