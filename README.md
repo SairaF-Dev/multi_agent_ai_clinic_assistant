@@ -7,7 +7,8 @@
 
 > **Brand:** MedCare Clinic  
 > **Tagline:** *Your Health, Our Priority*  
-> **Core Principle:** *"AI handles the workflow, but doctors remain in control of clinical decisions."*
+> **Core Principle:** *"AI handles the workflow, but doctors remain in control of clinical decisions."*  
+> **🌐 Live Production Deployment:** [https://multiagentaiclinicassistant-production.up.railway.app](https://multiagentaiclinicassistant-production.up.railway.app)
 
 ---
 
@@ -58,6 +59,7 @@
 | `/reports` | **Lab Reports Workflow**: File upload with prompt-injection defense and 6-stage lifecycle pipeline | Patient / Doctor |
 | `/prescriptions` | **Prescription Management**: Active medications, dosage instructions, and 5-stage conflict verification | Patient / Physician |
 | `/receptionist` | **Receptionist Command Center**: Dense data grid live feed, urgency tags, and manual takeover toggle | Front Desk Operations |
+| `/reminders` | **Care Reminders Hub**: Medication adherence tracking, pre-draw lab fasting alerts, and Early Warning Safety Net escalations | Care Coordinator (Farhan Ali) |
 | `/admin/graph` | **LangGraph Multi-Agent Topology**: Interactive visualization of supervisor routing and parallel branches | Administrator |
 | `/admin/traces` | **AI Observability Traces**: Waterfall latency breakdown (ms), token usage, cost ($), and tool calls | Administrator |
 | `/admin/audit` | **Immutable Audit Trail**: Append-only compliance log for logins, views, approvals, and escalations | Administrator / Compliance |
@@ -73,7 +75,20 @@
 | **Patient** | `ahmed` | `password123` | **Ahmed Khan** (MRN: `PAT-1001`), Age 38, Hypertension, Penicillin Allergy, Preferred Doctor: Dr. Bilal Ahmed |
 | **Doctor** | `dr.bilal` | `password123` | **Dr. Bilal Ahmed** (ID: `DOC-101`), General Physician (Rating 4.9), DHA Phase 5 Branch, Lahore |
 | **Receptionist** | `receptionist` | `password123` | **Sana Front Desk** (ID: `REC-001`), High-density queue management & manual override |
+| **Care Lead** | `coordinator` | `password123` | **Farhan Ali** (ID: `FLD-001`), Care Reminder Coordinator, Adherence & Early Warning Safety Net |
 | **Clinic Admin** | `admin` | `password123` | **Clinic Administrator**, Observability, LangGraph topology, and audit trail |
+
+---
+
+## 📚 Role-Based User Manuals & Documentation
+
+Comprehensive step-by-step operating guides are provided for each clinical role:
+
+- 📖 **[Master User Guides Index](docs/user-guides/README.md)** — Architecture overview, credentials, and cross-functional guide directory.
+- 👩‍⚕️ **[Patient Portal Guide](docs/user-guides/01-patient-portal-guide.md)** — Bilingual conversational AI intake, 5-stage progress indicator, emergency red-flag bypass (1122), appointment booking, and lab report explanations.
+- 👨‍⚕️ **[Doctor Clinical Workspace Guide](docs/user-guides/02-doctor-clinical-workspace-guide.md)** — Split-screen queue, allergy contraindications, automated SOAP consultation notes, and Human-in-the-Loop (HITL) approval workflows.
+- 👩‍💼 **[Receptionist Command Center Guide](docs/user-guides/03-receptionist-command-center-guide.md)** — Real-time live feed, walk-in registration, triage tags, and live **Manual Chat Takeover / Intercept**.
+- 🩺 **[Care Reminders Hub Guide](docs/user-guides/04-care-coordinator-hub-guide.md)** — Medication adherence monitoring, pre-draw lab fasting alerts, omnichannel batch dispatch (Resend Email API + WhatsApp), and Early Warning Safety Net escalations.
 
 ---
 
