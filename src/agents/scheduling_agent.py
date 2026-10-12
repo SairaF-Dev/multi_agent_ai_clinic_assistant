@@ -155,7 +155,7 @@ class SchedulingAgent:
         )
 
         msg = (
-            f" Mubarak ho! Aap ki appointment confirm ho gayi hai. "
+            f"Aap ki appointment confirm ho gayi hai. "
             f"Doctor: {doc_name} ({doc_spec}) | Branch: {branch_name}, {branch_city} | "
             f"Appointment ID: {apt_id} | Date: {date_str} | Slot: {time_slot}. "
             f"Please 15 min pehle clinic reception par pohnch jayein."
@@ -333,7 +333,7 @@ class SchedulingAgent:
             )
 
             reply = (
-                f"🎉 Mubarak ho! Aap ki appointment kamyabi se reschedule kar di gayi hai.\n\n"
+                f"Aap ki appointment reschedule kar di gayi hai.\n\n"
                 f"• **Doctor:** {doc_name} ({doc_spec})\n"
                 f"• **Branch:** {branch_name}\n"
                 f"• **Appointment ID:** {appt_id}\n"
