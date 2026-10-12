@@ -1322,7 +1322,7 @@
         const isAi = m.sender === 'AI' || m.sender === 'System';
         const isPatient = !isStaff && !isAi;
         return `
-          <div class="flex ${isPatient ? 'justify-end' : 'justify-start'} animate-fadeIn">
+          <div class="flex ${isPatient ? 'justify-end' : 'justify-start'}">
             <div class="max-w-[80%] rounded-2xl p-4 shadow-sm text-sm leading-relaxed ${
               isStaff 
                 ? 'bg-amber-50 border-2 border-amber-300 text-amber-950 font-medium' 
@@ -1358,7 +1358,7 @@
       if (box) {
         box.innerHTML = renderAssistantChatMessagesList(messages);
         if (window.lucide) lucide.createIcons();
-        setTimeout(initChatScroll, 50);
+        initChatScroll(true);
       }
       const badge = document.getElementById('assistantLiveStatusBadge');
       if (badge) {
@@ -1391,19 +1391,12 @@
         const res = await fetch(`/api/receptionist/chat/${state.currentPatientId}`);
         if (res.ok) {
           const data = await res.json();
-          if (data && Array.isArray(data.messages) && data.messages.length > 0) {
+          if (data && Array.isArray(data.messages)) {
             const currentMsgs = state.chatMessages || [];
-            let isDifferent = currentMsgs.length !== data.messages.length;
-            if (!isDifferent) {
-              for (let i = 0; i < data.messages.length; i++) {
-                if (currentMsgs[i].text !== data.messages[i].text || currentMsgs[i].sender !== data.messages[i].sender) {
-                  isDifferent = true;
-                  break;
-                }
-              }
-            }
             const overrideChanged = state.isManualOverrideActive !== !!data.is_manual_override;
-            if (isDifferent || overrideChanged) {
+            // Only update if human receptionist added a new message or takeover state toggled
+            const hasNewMessages = data.messages.length > currentMsgs.length;
+            if (overrideChanged || hasNewMessages) {
               const wasOverride = state.isManualOverrideActive;
               state.chatMessages = data.messages;
               state.isManualOverrideActive = !!data.is_manual_override;
@@ -1478,7 +1471,7 @@
 
       if (cleanPath === '/assistant' && state.currentRole === 'patient') {
         if (!state.patientChatPollingInterval) {
-          state.patientChatPollingInterval = setInterval(syncPatientAssistantChatFromApi, 1500);
+          state.patientChatPollingInterval = setInterval(syncPatientAssistantChatFromApi, 4000);
         }
         syncPatientAssistantChatFromApi();
       } else {
@@ -2747,11 +2740,12 @@
         }
       } else if (path === '/assistant') {
         container.innerHTML = renderAssistantPage();
-        setTimeout(initChatScroll, 50);
+        initChatScroll(false);
         if (state.currentRole === 'patient') {
-          if (!state.patientChatPollingInterval) {
-            state.patientChatPollingInterval = setInterval(syncPatientAssistantChatFromApi, 1500);
+          if (state.patientChatPollingInterval) {
+            clearInterval(state.patientChatPollingInterval);
           }
+          state.patientChatPollingInterval = setInterval(syncPatientAssistantChatFromApi, 4000);
           syncPatientAssistantChatFromApi();
         }
       } else if (path === '/portal' || path === '/profile') {
@@ -3029,8 +3023,10 @@
     // =========================================================================
     // VIEW 2: MEDCARE AI ASSISTANT (/assistant)
     // =========================================================================
-    function renderAssistantPage() {
-      const patient = getPatientProfile(state.currentPatientId);
+    // =========================================================================
+    // MODULAR ASSISTANT SUB-PANEL RENDERERS (NO FULL-PAGE RE-RENDERS)
+    // =========================================================================
+    function renderAssistantTopProgressIndicator() {
       const steps = [
         { num: 1, label: 'Symptoms' },
         { num: 2, label: 'Triage' },
@@ -3038,36 +3034,186 @@
         { num: 4, label: 'Appointment' },
         { num: 5, label: 'Confirmation' },
       ];
+      return `
+        <div class="flex items-center justify-between max-w-3xl mx-auto">
+          ${steps.map((s, idx) => {
+            const isActive = state.chatProgress >= s.num;
+            const isCurrent = state.chatProgress === s.num;
+            return `
+              <div class="flex items-center ${idx !== steps.length - 1 ? 'flex-1' : ''}">
+                <div class="flex flex-col items-center">
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    isCurrent ? 'bg-teal-600 text-white ring-4 ring-teal-100 shadow-sm' :
+                    isActive ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'
+                  }">
+                    ${s.num}
+                  </div>
+                  <span class="text-[11px] font-semibold mt-1.5 ${isActive ? 'text-navy-900' : 'text-slate-400'}">
+                    ${s.label}
+                  </span>
+                </div>
+                ${idx !== steps.length - 1 ? `
+                  <div class="flex-1 h-0.5 mx-2 ${state.chatProgress > s.num ? 'bg-teal-600' : 'bg-slate-200'}"></div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderQuickResponsesBar() {
+      const qrs = (state.quickResponses && state.quickResponses.length > 0) ? state.quickResponses : [
+        "Mujhe 2 din se bukhar aur khansi hai",
+        "Mild takleef hai (4/10)",
+        "2 din se takleef hai",
+        "Koi dawai se allergy nahi hai",
+        "Panadol 500mg le raha hoon"
+      ];
+      return `
+        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">Quick Responses:</span>
+        ${qrs.map(r => `
+          <button onclick="sendChatMessage('${r.replace(/'/g, "\\'")}')" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold px-3 py-1 rounded-full whitespace-nowrap border border-teal-200 transition-colors shadow-sm">
+            ${r}
+          </button>
+        `).join('')}
+      `;
+    }
+
+    function renderAssistantRightClinicalPanel() {
+      return `
+        <!-- Panel 1: Live Intake Progress -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h4 class="text-sm font-bold text-navy-900">Intake Progress</h4>
+            <span class="badge-tag bg-teal-100 text-teal-800">Step ${state.chatProgress} of 5</span>
+          </div>
+          
+          <div class="space-y-2.5 text-xs">
+            <div class="flex items-center justify-between text-slate-700">
+              <span class="flex items-center">
+                <i data-lucide="${(state.chatSymptoms.length > 0 || state.chatProgress >= 2) ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${(state.chatSymptoms.length > 0 || state.chatProgress >= 2) ? 'text-teal-600' : 'text-slate-300'}"></i>
+                Symptoms Collected
+              </span>
+              <span class="font-semibold text-slate-900">${state.chatSymptoms.length > 0 ? state.chatSymptoms.length + ' logged' : (state.chatProgress >= 2 ? 'Completed' : 'In progress')}</span>
+            </div>
+
+            <div class="flex items-center justify-between text-slate-700">
+              <span class="flex items-center">
+                <i data-lucide="${state.chatProgress >= 2 ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${state.chatProgress >= 2 ? 'text-teal-600' : 'text-slate-300'}"></i>
+                Clinical Triage
+              </span>
+              <span class="font-semibold text-slate-900">${state.chatProgress >= 2 ? state.chatTriage : 'Pending Intake'}</span>
+            </div>
+
+            <div class="flex items-center justify-between text-slate-700">
+              <span class="flex items-center">
+                <i data-lucide="${state.chatProgress >= 3 ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${state.chatProgress >= 3 ? 'text-teal-600' : 'text-slate-300'}"></i>
+                Specialist Recommendation
+              </span>
+              <span class="font-semibold text-slate-900">${state.chatProgress >= 3 ? (state.chatDoctorSpecialty || 'General Physician') : 'Pending Triage'}</span>
+            </div>
+
+            <div class="flex items-center justify-between text-slate-700">
+              <span class="flex items-center">
+                <i data-lucide="${state.chatProgress >= 4 ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${state.chatProgress >= 4 ? 'text-teal-600' : 'text-slate-300'}"></i>
+                Appointment Slot
+              </span>
+              <span class="font-semibold text-slate-900">${state.chatProgress >= 4 ? (state.chatSlot || 'Tomorrow 10:30 AM') : 'Pending Scheduling'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Detected Symptoms & Triage Assessment -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+          <h4 class="text-sm font-bold text-navy-900">Detected Clinical Symptoms</h4>
+          <div class="flex flex-wrap gap-2">
+            ${(state.chatSymptoms && state.chatSymptoms.length > 0) ? state.chatSymptoms.map(s => `
+              <span class="bg-slate-100 text-slate-800 text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-200 flex items-center">
+                <i data-lucide="activity" class="w-3 h-3 text-teal-600 mr-1.5"></i>
+                ${s}
+              </span>
+            `).join('') : `
+              <div class="w-full p-2.5 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400 italic flex items-center gap-2">
+                <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+                <span>No symptoms recorded yet. Please describe your symptoms in the chat.</span>
+              </div>
+            `}
+          </div>
+
+          <div class="pt-3 border-t border-slate-100">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Triage Assessment</span>
+            ${state.chatProgress >= 2 ? `
+              <div class="p-3 ${state.chatTriage === 'Emergency' ? 'bg-red-50 border-red-200 text-red-900' : 'bg-teal-50 border-teal-200 text-teal-900'} border rounded-xl text-xs leading-relaxed">
+                <strong>${state.chatTriage || 'Routine'} Presentation:</strong> ${state.chatTriageAssessment || 'Your symptoms do not currently appear to require emergency care, but clinical consultation is recommended.'}
+              </div>
+            ` : `
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-400 italic">
+                Awaiting symptom intake. Clinical triage assessment will be generated once symptoms are reported.
+              </div>
+            `}
+          </div>
+
+          <div class="pt-2">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Recommended Doctor</span>
+            ${state.chatProgress >= 3 ? `
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold text-navy-900">${state.chatDoctorName || 'Dr. Bilal Ahmed'}</div>
+                  <div class="text-[11px] text-slate-500">${state.chatDoctorSpecialty || 'General Physician (Rating 4.9)'}</div>
+                </div>
+                <button onclick="goToBookingFromAssistant()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm">
+                  ${state.chatProgress >= 5 ? 'View Booking' : 'Select Slot'}
+                </button>
+              </div>
+            ` : `
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold text-slate-400 italic">Pending Triage Assessment</div>
+                  <div class="text-[11px] text-slate-400">Specialist matching occurs after symptom review</div>
+                </div>
+                <button disabled class="bg-slate-200 text-slate-400 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-not-allowed">
+                  Pending
+                </button>
+              </div>
+            `}
+          </div>
+        </div>
+
+        <!-- Emergency Warning Notice -->
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-xs text-red-900 space-y-2">
+          <div class="flex items-center font-bold text-red-800">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600 mr-1.5"></i>
+            <span>Emergency Safety Notice</span>
+          </div>
+          <p class="leading-relaxed text-[11px] text-red-700">
+            The MedCare Assistant is an automated clinical intake tool, not a doctor. If you experience severe chest pain, extreme breathlessness, or stroke symptoms, please dial <strong>1122</strong> or visit the nearest ER immediately.
+          </p>
+        </div>
+      `;
+    }
+
+    function updateAssistantSidebarAndPanels() {
+      const topProg = document.getElementById('assistantTopProgressIndicator');
+      if (topProg) topProg.innerHTML = renderAssistantTopProgressIndicator();
+      const qrBar = document.getElementById('quickResponsesBar');
+      if (qrBar) qrBar.innerHTML = renderQuickResponsesBar();
+      const rightPanel = document.getElementById('assistantRightClinicalPanel');
+      if (rightPanel) {
+        rightPanel.innerHTML = renderAssistantRightClinicalPanel();
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    function renderAssistantPage() {
+      const patient = getPatientProfile(state.currentPatientId);
 
       return `
         <div class="space-y-6">
           
           <!-- Top Progress Indicator (1 to 5) -->
-          <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-            <div class="flex items-center justify-between max-w-3xl mx-auto">
-              ${steps.map((s, idx) => {
-                const isActive = state.chatProgress >= s.num;
-                const isCurrent = state.chatProgress === s.num;
-                return `
-                  <div class="flex items-center ${idx !== steps.length - 1 ? 'flex-1' : ''}">
-                    <div class="flex flex-col items-center">
-                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                        isCurrent ? 'bg-teal-600 text-white ring-4 ring-teal-100' :
-                        isActive ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'
-                      }">
-                        ${s.num}
-                      </div>
-                      <span class="text-[11px] font-semibold mt-1.5 ${isActive ? 'text-navy-900' : 'text-slate-400'}">
-                        ${s.label}
-                      </span>
-                    </div>
-                    ${idx !== steps.length - 1 ? `
-                      <div class="flex-1 h-0.5 mx-2 ${state.chatProgress > s.num ? 'bg-teal-600' : 'bg-slate-200'}"></div>
-                    ` : ''}
-                  </div>
-                `;
-              }).join('')}
-            </div>
+          <div id="assistantTopProgressIndicator" class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+            ${renderAssistantTopProgressIndicator()}
           </div>
 
           <!-- Split Layout: Chat on Left (65%), Clinical Intake Panel on Right (35%) -->
@@ -3125,31 +3271,8 @@
               </div>
 
               <!-- Clickable Quick Responses Chips -->
-              <div class="px-6 py-2 bg-white border-t border-slate-100 flex items-center space-x-2 overflow-x-auto custom-scrollbar">
-                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">Quick Responses:</span>
-                ${(state.quickResponses && state.quickResponses.length > 0) ?
-                  state.quickResponses.map(r => `
-                    <button onclick="sendChatMessage('${r}')" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold px-3 py-1 rounded-full whitespace-nowrap border border-teal-200 transition-colors shadow-sm">
-                      ${r}
-                    </button>
-                  `).join('') : `
-                    <button onclick="sendChatMessage('Mujhe 2 din se bukhar aur khansi hai')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full whitespace-nowrap border border-slate-200">
-                      Bukhar aur khansi hai
-                    </button>
-                    <button onclick="sendChatMessage('Mild takleef hai (4/10)')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full whitespace-nowrap border border-slate-200">
-                      Mild (4/10)
-                    </button>
-                    <button onclick="sendChatMessage('2 din se takleef hai')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full whitespace-nowrap border border-slate-200">
-                      2 din se
-                    </button>
-                    <button onclick="sendChatMessage('Koi dawai se allergy nahi hai')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full whitespace-nowrap border border-slate-200">
-                      No allergies
-                    </button>
-                    <button onclick="sendChatMessage('Panadol 500mg le raha hoon')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full whitespace-nowrap border border-slate-200">
-                      Panadol 500mg
-                    </button>
-                  `
-                }
+              <div id="quickResponsesBar" class="px-6 py-2 bg-white border-t border-slate-100 flex items-center space-x-2 overflow-x-auto custom-scrollbar">
+                ${renderQuickResponsesBar()}
               </div>
 
               <!-- Input Form -->
@@ -3164,117 +3287,8 @@
             </div>
 
             <!-- Right Clinical Intake Panel (35%) -->
-            <div class="lg:col-span-4 space-y-4">
-              
-              <!-- Panel 1: Live Intake Progress -->
-              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <h4 class="text-sm font-bold text-navy-900">Intake Progress</h4>
-                  <span class="badge-tag bg-teal-100 text-teal-800">Step ${state.chatProgress} of 5</span>
-                </div>
-                
-                <div class="space-y-2.5 text-xs">
-                  <div class="flex items-center justify-between text-slate-700">
-                    <span class="flex items-center">
-                      <i data-lucide="${(state.chatSymptoms.length > 0 || state.chatProgress >= 2) ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${(state.chatSymptoms.length > 0 || state.chatProgress >= 2) ? 'text-teal-600' : 'text-slate-300'}"></i>
-                      Symptoms Collected
-                    </span>
-                    <span class="font-semibold text-slate-900">${state.chatSymptoms.length > 0 ? state.chatSymptoms.length + ' logged' : (state.chatProgress >= 2 ? 'Completed' : 'In progress')}</span>
-                  </div>
-
-                  <div class="flex items-center justify-between text-slate-700">
-                    <span class="flex items-center">
-                      <i data-lucide="${state.chatProgress >= 2 ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${state.chatProgress >= 2 ? 'text-teal-600' : 'text-slate-300'}"></i>
-                      Clinical Triage
-                    </span>
-                    <span class="font-semibold text-slate-900">${state.chatProgress >= 2 ? state.chatTriage : 'Pending Intake'}</span>
-                  </div>
-
-                  <div class="flex items-center justify-between text-slate-700">
-                    <span class="flex items-center">
-                      <i data-lucide="${state.chatProgress >= 3 ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${state.chatProgress >= 3 ? 'text-teal-600' : 'text-slate-300'}"></i>
-                      Specialist Recommendation
-                    </span>
-                    <span class="font-semibold text-slate-900">${state.chatProgress >= 3 ? (state.chatDoctorSpecialty || 'General Physician') : 'Pending Triage'}</span>
-                  </div>
-
-                  <div class="flex items-center justify-between text-slate-700">
-                    <span class="flex items-center">
-                      <i data-lucide="${state.chatProgress >= 4 ? 'check-circle-2' : 'circle'}" class="w-4 h-4 mr-2 ${state.chatProgress >= 4 ? 'text-teal-600' : 'text-slate-300'}"></i>
-                      Appointment Slot
-                    </span>
-                    <span class="font-semibold text-slate-900">${state.chatProgress >= 4 ? (state.chatSlot || 'Tomorrow 10:30 AM') : 'Pending Scheduling'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Panel 2: Detected Symptoms & Triage Assessment -->
-              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-                <h4 class="text-sm font-bold text-navy-900">Detected Clinical Symptoms</h4>
-                <div class="flex flex-wrap gap-2">
-                  ${(state.chatSymptoms && state.chatSymptoms.length > 0) ? state.chatSymptoms.map(s => `
-                    <span class="bg-slate-100 text-slate-800 text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-200 flex items-center">
-                      <i data-lucide="activity" class="w-3 h-3 text-teal-600 mr-1.5"></i>
-                      ${s}
-                    </span>
-                  `).join('') : `
-                    <div class="w-full p-2.5 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400 italic flex items-center gap-2">
-                      <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
-                      <span>No symptoms recorded yet. Please describe your symptoms in the chat.</span>
-                    </div>
-                  `}
-                </div>
-
-                <div class="pt-3 border-t border-slate-100">
-                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Triage Assessment</span>
-                  ${state.chatProgress >= 2 ? `
-                    <div class="p-3 ${state.chatTriage === 'Emergency' ? 'bg-red-50 border-red-200 text-red-900' : 'bg-teal-50 border-teal-200 text-teal-900'} border rounded-xl text-xs leading-relaxed">
-                      <strong>${state.chatTriage || 'Routine'} Presentation:</strong> ${state.chatTriageAssessment || 'Your symptoms do not currently appear to require emergency care, but clinical consultation is recommended.'}
-                    </div>
-                  ` : `
-                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-400 italic">
-                      Awaiting symptom intake. Clinical triage assessment will be generated once symptoms are reported.
-                    </div>
-                  `}
-                </div>
-
-                <div class="pt-2">
-                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Recommended Doctor</span>
-                  ${state.chatProgress >= 3 ? `
-                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                      <div>
-                        <div class="text-xs font-bold text-navy-900">${state.chatDoctorName || 'Dr. Bilal Ahmed'}</div>
-                        <div class="text-[11px] text-slate-500">${state.chatDoctorSpecialty || 'General Physician (Rating 4.9)'}</div>
-                      </div>
-                      <button onclick="goToBookingFromAssistant()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm">
-                        ${state.chatProgress >= 5 ? 'View Booking' : 'Select Slot'}
-                      </button>
-                    </div>
-                  ` : `
-                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                      <div>
-                        <div class="text-xs font-bold text-slate-400 italic">Pending Triage Assessment</div>
-                        <div class="text-[11px] text-slate-400">Specialist matching occurs after symptom review</div>
-                      </div>
-                      <button disabled class="bg-slate-200 text-slate-400 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-not-allowed">
-                        Pending
-                      </button>
-                    </div>
-                  `}
-                </div>
-              </div>
-
-              <!-- Emergency Warning Notice -->
-              <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-xs text-red-900 space-y-2">
-                <div class="flex items-center font-bold text-red-800">
-                  <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600 mr-1.5"></i>
-                  <span>Emergency Safety Notice</span>
-                </div>
-                <p class="leading-relaxed text-[11px] text-red-700">
-                  The MedCare Assistant is an automated clinical intake tool, not a doctor. If you experience severe chest pain, extreme breathlessness, or stroke symptoms, please dial <strong>1122</strong> or visit the nearest ER immediately.
-                </p>
-              </div>
-
+            <div id="assistantRightClinicalPanel" class="lg:col-span-4 space-y-4">
+              ${renderAssistantRightClinicalPanel()}
             </div>
 
           </div>
@@ -3283,9 +3297,15 @@
       `;
     }
 
-    function initChatScroll() {
+    function initChatScroll(smooth = true) {
       const box = document.getElementById('chatMessagesBox');
-      if (box) box.scrollTop = box.scrollHeight;
+      if (box) {
+        if (smooth) {
+          box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+        } else {
+          box.scrollTop = box.scrollHeight;
+        }
+      }
     }
 
     async function handleChatSubmit(e) {
@@ -3302,7 +3322,19 @@
     async function sendChatMessage(text) {
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       state.chatMessages.push({ sender: 'Patient', text: text, timestamp: timestamp });
-      updateAssistantChatMessagesBox(state.chatMessages, state.isManualOverrideActive);
+      
+      const box = document.getElementById('chatMessagesBox');
+      if (box) {
+        box.innerHTML = renderAssistantChatMessagesList(state.chatMessages) + `
+          <div id="aiTypingBubble" class="flex justify-start">
+            <div class="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 shadow-sm text-xs flex items-center gap-2 text-slate-500">
+              <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+              <span>MedCare Assistant soch raha hai...</span>
+            </div>
+          </div>
+        `;
+        initChatScroll(true);
+      }
 
       try {
         const res = await fetch('/api/assistant/chat', {
@@ -3369,14 +3401,15 @@
           triggerEmergencyModal();
         }
 
-        if (isOverrideActive) {
-          updateAssistantChatMessagesBox(state.chatMessages, true);
-        } else {
-          renderCurrentRoute();
-        }
+        // SMOOTH UPDATE: Update messages and side panels WITHOUT re-rendering current route!
+        updateAssistantChatMessagesBox(state.chatMessages, isOverrideActive);
+        updateAssistantSidebarAndPanels();
       } catch (err) {
         state.chatMessages.push({ sender: 'AI', text: 'Maazrat, network error hua. Dobara koshish karein.' });
         updateAssistantChatMessagesBox(state.chatMessages, state.isManualOverrideActive);
+      } finally {
+        const inp = document.getElementById('chatInput');
+        if (inp) inp.focus();
       }
     }
 
