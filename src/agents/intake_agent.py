@@ -280,7 +280,9 @@ class IntakeAgent:
 
         # Determine appropriate specialty based on symptoms
         all_sym_text = f"{chief} {assoc}".lower()
-        if any(w in all_sym_text for w in ["gala", "throat", "zukaam", "cold", "naak", "ear", "kaan", "sinus"]):
+        if any(w in all_sym_text for w in ["dant", "tooth", "teeth", "molar", "gums", "masoorh", "jaw"]):
+            spec_display = "Dentistry / Oral Surgery"
+        elif any(w in all_sym_text for w in ["gala", "throat", "zukaam", "cold", "naak", "ear", "kaan", "sinus"]):
             spec_display = "ENT / General Medicine"
         elif any(w in all_sym_text for w in ["leg", "bone", "joint", "haddi", "kamar", "back pain", "taang", "muscle"]):
             spec_display = "Orthopedics / General Medicine"
@@ -293,7 +295,7 @@ class IntakeAgent:
 
         summary = (
             "Bohot shukriya! Main ne aap ki tamam clinical intake information record kar li hai.\n\n"
-            "📋 **CLINICAL INTAKE SUMMARY (KHLASA):**\n"
+            "**CLINICAL INTAKE SUMMARY (KHLASA):**\n"
             f"• **Chief Complaint (Bunyadi Takleef):** {chief}\n"
             f"• **Duration (Waqfa):** {duration}\n"
             f"• **Severity Score (Shidat):** {severity} (Scale: 0-10)\n"

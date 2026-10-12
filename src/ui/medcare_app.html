@@ -1313,6 +1313,180 @@
       }
     }
 
+    function escapeClinicalHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatMarkdownInline(str) {
+      if (!str) return '';
+      return str
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="text-slate-600 not-italic font-medium">$1</em>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function renderClinicalChatBubbleContent(rawText) {
+      if (!rawText) return '';
+      
+      // Clean out emojis for professional clinical view
+      let text = String(rawText).replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+
+      if (text.includes('CLINICAL INTAKE SUMMARY')) {
+        try {
+          const lines = text.split('\n');
+          let introLines = [];
+          let summaryLines = [];
+          let outroLines = [];
+          let section = 'intro';
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.includes('CLINICAL INTAKE SUMMARY')) {
+              section = 'summary';
+              continue;
+            }
+            if (section === 'summary') {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('•') || trimmed.startsWith('*(') || trimmed.startsWith('(') || trimmed.startsWith('[MEDICATION RECONCILIATION]')) {
+                summaryLines.push(trimmed);
+              } else if (trimmed.length > 0) {
+                section = 'outro';
+                outroLines.push(line);
+              }
+            } else if (section === 'outro') {
+              outroLines.push(line);
+            } else {
+              introLines.push(line);
+            }
+          }
+
+          const extractVal = (pattern) => {
+            const found = summaryLines.find(l => pattern.test(l));
+            if (!found) return null;
+            return found
+              .replace(/^•\s*/, '')
+              .replace(/\*\*/g, '')
+              .replace(/^[^:]+:\s*/, '')
+              .trim();
+          };
+
+          const chief = extractVal(/Chief Complaint/i) || 'Not specified';
+          const duration = extractVal(/Duration/i) || 'Not specified';
+          const severity = extractVal(/Severity/i) || 'Not specified';
+          const assoc = extractVal(/Associated Symptoms/i) || 'None reported';
+          const allergies = extractVal(/Reported Allergies/i) || 'None reported';
+          const meds = extractVal(/Current Home Medications/i) || 'None reported';
+          const triage = extractVal(/Triage Assessment/i) || 'Routine Clinical Consultation Recommended';
+          const specialty = extractVal(/Recommended Specialty/i) || 'General Medicine';
+
+          const ehrAlgLine = summaryLines.find(l => /Verified EHR Allergies/i.test(l));
+          const ehrAlg = ehrAlgLine ? ehrAlgLine.replace(/[\*\(\)]/g, '').trim() : '';
+
+          const ehrMedLine = summaryLines.find(l => /Verified EHR Medications/i.test(l));
+          const ehrMed = ehrMedLine ? ehrMedLine.replace(/[\*\(\)]/g, '').trim() : '';
+
+          const reconLine = summaryLines.find(l => /MEDICATION RECONCILIATION/i.test(l));
+          const reconNote = reconLine ? reconLine.replace(/^•\s*/, '').replace(/\[MEDICATION RECONCILIATION\]\s*/i, '').trim() : '';
+
+          const introText = introLines.join('\n').trim();
+          const outroText = outroLines.join('\n').trim();
+
+          return `
+            <div class="space-y-3">
+              ${introText ? `<p class="leading-relaxed font-normal">${formatMarkdownInline(escapeClinicalHtml(introText))}</p>` : ''}
+              
+              <div class="border border-teal-200/90 bg-white rounded-xl overflow-hidden shadow-xs">
+                <div class="bg-teal-800 text-white px-3.5 py-2.5 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <i data-lucide="clipboard-check" class="w-4 h-4 text-teal-200"></i>
+                    <span class="text-[11px] font-bold uppercase tracking-wider">Clinical Intake Summary (Khlasa)</span>
+                  </div>
+                  <span class="text-[10px] font-semibold bg-white/20 text-white px-2 py-0.5 rounded-full border border-white/20">Verified</span>
+                </div>
+
+                <div class="p-3.5 space-y-2.5 text-xs text-slate-800">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-2.5 border-b border-slate-100">
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Bunyadi Takleef (Chief Complaint)</span>
+                      <span class="font-bold text-slate-900">${escapeClinicalHtml(chief)}</span>
+                    </div>
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Waqfa (Duration)</span>
+                      <span class="font-medium text-slate-800">${escapeClinicalHtml(duration)}</span>
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-2.5 border-b border-slate-100">
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Shidat (Severity Scale 0-10)</span>
+                      <span class="inline-flex items-center gap-1.5 font-bold text-slate-900">
+                        <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">${escapeClinicalHtml(severity)}</span>
+                      </span>
+                    </div>
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Deegar Alamaat (Associated)</span>
+                      <span class="font-medium text-slate-800">${escapeClinicalHtml(assoc)}</span>
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-2.5 border-b border-slate-100">
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Reported Allergies</span>
+                      <span class="font-semibold text-slate-900">${escapeClinicalHtml(allergies)}</span>
+                      ${ehrAlg ? `<span class="block text-[10px] text-slate-500 mt-0.5 italic">${escapeClinicalHtml(ehrAlg)}</span>` : ''}
+                    </div>
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Current Home Medications</span>
+                      <span class="font-semibold text-slate-900">${escapeClinicalHtml(meds)}</span>
+                      ${ehrMed ? `<span class="block text-[10px] text-slate-500 mt-0.5 italic">${escapeClinicalHtml(ehrMed)}</span>` : ''}
+                    </div>
+                  </div>
+
+                  <div class="pt-1 flex flex-wrap items-center justify-between gap-2.5">
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Triage Urgency</span>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        ${escapeClinicalHtml(triage)}
+                      </span>
+                    </div>
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Recommended Department</span>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                        <i data-lucide="stethoscope" class="w-3.5 h-3.5 text-teal-700"></i>
+                        ${escapeClinicalHtml(specialty)}
+                      </span>
+                    </div>
+                  </div>
+
+                  ${reconNote ? `
+                    <div class="mt-2.5 p-2.5 bg-amber-50/80 border border-amber-200 rounded-lg text-[11px] text-amber-900 flex items-start gap-2">
+                      <i data-lucide="alert-circle" class="w-4 h-4 text-amber-700 shrink-0 mt-0.5"></i>
+                      <div class="leading-relaxed">
+                        <strong class="font-bold text-amber-950">Medication Reconciliation:</strong> ${escapeClinicalHtml(reconNote)}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+
+              ${outroText ? `<p class="leading-relaxed font-normal text-slate-700">${formatMarkdownInline(escapeClinicalHtml(outroText))}</p>` : ''}
+            </div>
+          `;
+        } catch (e) {
+          console.warn('Clinical card format fallback:', e);
+        }
+      }
+
+      return `<div class="leading-relaxed font-normal">${formatMarkdownInline(escapeClinicalHtml(text))}</div>`;
+    }
+
     function renderAssistantChatMessagesList(messages) {
       if (!messages || messages.length === 0) {
         return `<div class="text-center text-xs text-slate-400 py-8">No messages yet.</div>`;
@@ -1323,7 +1497,7 @@
         const isPatient = !isStaff && !isAi;
         return `
           <div class="flex ${isPatient ? 'justify-end' : 'justify-start'}">
-            <div class="max-w-[80%] rounded-2xl p-4 shadow-sm text-sm leading-relaxed ${
+            <div class="max-w-[85%] rounded-2xl p-4 shadow-sm text-sm leading-relaxed ${
               isStaff 
                 ? 'bg-amber-50 border-2 border-amber-300 text-amber-950 font-medium' 
                 : (isAi ? 'bg-white border border-slate-200 text-navy-900' : 'bg-teal-600 text-white font-medium')
@@ -1346,7 +1520,7 @@
                   ${m.timestamp ? `<span class="text-teal-200 font-normal text-[10px]">${m.timestamp}</span>` : ''}
                 </div>
               `)}
-              <p class="whitespace-pre-line">${m.text}</p>
+              <div>${isAi ? renderClinicalChatBubbleContent(m.text) : `<p class="whitespace-pre-line">${escapeClinicalHtml(m.text)}</p>`}</div>
             </div>
           </div>
         `;
@@ -5830,7 +6004,7 @@ ESR                12          mm/hr      0 - 15
                   <span>MedCare AI Assistant</span>
                   <span class="text-slate-400 font-normal ml-auto">${m.timestamp || ''}</span>
                 </div>
-                <p class="text-xs leading-relaxed">${m.text}</p>
+                <div>${renderClinicalChatBubbleContent(m.text)}</div>
               </div>
             </div>
           `;
