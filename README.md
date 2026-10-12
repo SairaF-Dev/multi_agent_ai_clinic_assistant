@@ -12,8 +12,7 @@ MedCare Clinic is an outpatient clinical operations platform developed with a La
 ```mermaid
 flowchart TD
     subgraph ClientLayer["User Interfaces & Workstations"]
-        UI_SPA["Vanilla JavaScript SPA (medcare_app.html)"]
-        UI_ST["Streamlit Clinical EHR (app.py)"]
+        UI_SPA["Web Clinical Workstation & Portal (medcare_app.html)"]
         CLIENT_EXT["Omnichannel Gateways: Email (Resend) & WhatsApp"]
     end
 
@@ -166,7 +165,7 @@ HOST=0.0.0.0
 
 ### Step 4: Run Application
 
-#### Option 1: Full-Stack Web Application (FastAPI + SPA)
+#### Local Execution (FastAPI + SPA)
 
 ```bash
 python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 1 --reload
@@ -175,14 +174,7 @@ python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 1 --relo
 - OpenAPI Specification: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
 
-#### Option 2: Streamlit Clinical EHR Portal
-
-```bash
-python -m streamlit run src/ui/app.py --server.port 8501
-```
-- Streamlit Interface: [http://localhost:8501](http://localhost:8501)
-
-#### Option 3: Docker Deployment
+#### Containerized Execution (Docker)
 
 ```bash
 docker build -t medcare-clinic:latest .

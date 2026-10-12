@@ -14,8 +14,7 @@ MedCare Clinic is structured as an event-driven, multi-agent healthcare platform
 ```mermaid
 flowchart TD
     subgraph ClientLayer["Client & User Interfaces"]
-        UI_SPA["Vanilla JS SPA (medcare_app.html)"]
-        UI_ST["Streamlit EHR Portal (app.py)"]
+        UI_SPA["Web Clinical Workstation & Portal (medcare_app.html)"]
         CLIENT_EXT["Omnichannel: Email & WhatsApp"]
     end
 
@@ -112,14 +111,7 @@ python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 - **Interactive OpenAPI Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Endpoint:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### Option B: Streamlit Enterprise EHR Portal
-
-```bash
-python -m streamlit run src/ui/app.py --server.port 8501
-```
-- **Streamlit EHR Portal:** [http://localhost:8501](http://localhost:8501)
-
-### Option C: Docker Container Deployment
+### Option B: Docker Container Deployment
 
 ```bash
 # Build the production Docker image
@@ -129,7 +121,7 @@ docker build -t medcare-clinic-assistant:latest .
 docker run -d --name medcare-clinic -p 8000:8000 --env-file .env medcare-clinic-assistant:latest
 ```
 
-### Option D: Docker Compose (Dual Stack: API + Streamlit)
+### Option C: Docker Compose
 
 ```bash
 docker-compose up -d --build
