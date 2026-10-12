@@ -36,16 +36,19 @@ load_env_file()
 
 class LLMClient:
     def __init__(self, model_name: Optional[str] = None):
-        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        raw_or = os.getenv("OPENROUTER_API_KEY")
+        self.openrouter_api_key = raw_or.strip().strip("'").strip('"') if raw_or else None
+        
+        raw_oa = os.getenv("OPENAI_API_KEY")
+        self.openai_api_key = raw_oa.strip().strip("'").strip('"') if raw_oa else None
         
         # OpenRouter Base URL & headers (guarantee /chat/completions endpoint)
-        base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
+        base_url = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1/chat/completions").strip().strip("'").strip('"')
         if not base_url.endswith("/chat/completions"):
             base_url = base_url.rstrip("/") + "/chat/completions"
         self.openrouter_url = base_url
 
-        configured_model = model_name or os.getenv("LLM_MODEL_NAME", "openai/gpt-4o-mini")
+        configured_model = (model_name or os.getenv("LLM_MODEL_NAME") or "openai/gpt-4o-mini").strip().strip("'").strip('"')
         # Ensure fast, reliable production model
         if "free" in configured_model.lower():
             self.default_model = "openai/gpt-4o-mini"
@@ -61,13 +64,13 @@ class LLMClient:
         """
         Sends chat completion request to OpenRouter API (or OpenAI) using OPENROUTER_API_KEY.
         """
-        api_key = self.openrouter_api_key or self.openai_api_key
+        api_key = (self.openrouter_api_key or self.openai_api_key or "").strip().strip("'").strip('"')
         
-        if not api_key:
-            # Fallback when no API key is configured (Local Heuristic / Sandbox Mode)
+        if not api_key or "your_openrouter_key" in api_key.lower():
+            # Fallback when no API key is configured (Clinical Intake Fallback)
             return {
                 "status": "SANDBOX_MOCK",
-                "content": "API Key not provided in .env. Operating in sandbox mode.",
+                "content": "Assalam-o-Alaikum! Main MedCare Clinical Intake Assistant hoon. Barah-e-karam apni alamaat tafseel se batayein (jaise bukhar, khansi, dard).",
                 "model": "sandbox-local"
             }
 
