@@ -363,7 +363,7 @@ class SchedulingAgent:
                 f"{check_date} ko {doc_name} ke tamam slots booked hain. "
                 f"Lekin agle din ({next_date}) ko yeh slots available hain:\n\n"
                 f"{slots_list_str}\n\n"
-                f"Aap in mein se kis waqt par aana pasand karein gi? Bas apna pasandeeda time reply karein."
+                f"In mein se jo time convenient ho, bata dein ya neeche se select kar lein. Main book kar deti hoon."
             )
             return reply, state
 
@@ -374,15 +374,13 @@ class SchedulingAgent:
             reply = (
                 f"Ji bilkul! **{check_date}** ko {doc_name} ke paas yeh slots available hain:\n\n"
                 f"{slots_list_str}\n\n"
-                f"Aap in mein se kis waqt par aana pasand karein gi? "
-                f"Bas apna pasandeeda time reply karein ya Quick Responses se select karein."
+                f"In mein se jo time convenient ho, bata dein ya neeche se select kar lein. Main book kar deti hoon."
             )
         else:
             reply = (
                 f"Ji bilkul, koi masla nahi! {doc_name} ke paas **{current_date}** ko yeh doosray slots available hain:\n\n"
                 f"{slots_list_str}\n\n"
-                f"Aap in mein se kis waqt par aana pasand karein gi? "
-                f"Bas apna pasandeeda time bata dein ya Quick Responses se select karein."
+                f"In mein se jo time convenient ho, bata dein ya neeche se select kar lein. Main book kar deti hoon."
             )
         return reply, state
 
