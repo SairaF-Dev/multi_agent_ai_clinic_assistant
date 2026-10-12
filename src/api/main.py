@@ -2816,6 +2816,8 @@ def dispatch_batch_care_reminders(req: BatchDispatchRemindersRequest = Body(defa
     
     if req.reminder_ids and len(req.reminder_ids) > 0:
         placeholders = ','.join(['?'] * len(req.reminder_ids))
+        cursor.execute(f"SELECT id, patient_id, reminder_type, channel, message_text FROM follow_ups WHERE id IN ({placeholders}) AND status = 'SCHEDULED'", req.reminder_ids)
+        to_dispatch = cursor.fetchall()
         cursor.execute(f"""
             UPDATE follow_ups 
             SET status = 'SENT', sent_at = datetime('now')
@@ -2823,6 +2825,8 @@ def dispatch_batch_care_reminders(req: BatchDispatchRemindersRequest = Body(defa
         """, req.reminder_ids)
         dispatched_cnt = cursor.rowcount
     else:
+        cursor.execute("SELECT id, patient_id, reminder_type, channel, message_text FROM follow_ups WHERE status = 'SCHEDULED'")
+        to_dispatch = cursor.fetchall()
         cursor.execute("""
             UPDATE follow_ups 
             SET status = 'SENT', sent_at = datetime('now')
@@ -2832,6 +2836,21 @@ def dispatch_batch_care_reminders(req: BatchDispatchRemindersRequest = Body(defa
         
     conn.commit()
     conn.close()
+
+    # Trigger live Resend delivery for all Email items in the batch
+    for row in to_dispatch:
+        channel = row["channel"] if "channel" in row.keys() else ""
+        msg = row["message_text"] if "message_text" in row.keys() else ""
+        rem_type = row["reminder_type"] if "reminder_type" in row.keys() else "Medication"
+        if channel and "email" in str(channel).lower():
+            try:
+                notifications_mcp.send_email_confirmation(
+                    email="sairafatima193@gmail.com",
+                    subject=f"Care Reminder ({rem_type}): MedCare Clinics",
+                    body_text=msg
+                )
+            except Exception as e:
+                logger.warning(f"Batch email dispatch error: {e}")
     
     log_audit_event("Farhan Ali (Care Lead)", "Care Coordinator", "BATCH_DISPATCH_REMINDERS", "NOTIFICATIONS_HUB", "SUCCESS", details={"dispatched_count": dispatched_cnt})
     
@@ -2855,13 +2874,33 @@ def send_single_care_reminder(req: SendSingleReminderRequest):
     conn.commit()
     conn.close()
     
-    log_audit_event("Farhan Ali (Care Lead)", "Care Coordinator", "DISPATCH_SINGLE_REMINDER", "NOTIFICATIONS_HUB", "SENT", patient_id=req.patient_id, details={"reminder_id": rem_id, "channel": req.channel})
+    delivery_meta = {}
+    if req.channel and "email" in req.channel.lower():
+        try:
+            delivery_meta = notifications_mcp.send_email_confirmation(
+                email="sairafatima193@gmail.com",
+                subject=f"Care Reminder ({req.reminder_type}): MedCare Clinics",
+                body_text=req.message_text
+            )
+        except Exception as e:
+            logger.warning(f"Resend email dispatch error: {e}")
+    elif req.channel and "whatsapp" in req.channel.lower():
+        try:
+            delivery_meta = notifications_mcp.send_whatsapp_message(
+                phone="+923171730393",
+                message_text=req.message_text
+            )
+        except Exception:
+            pass
+
+    log_audit_event("Farhan Ali (Care Lead)", "Care Coordinator", "DISPATCH_SINGLE_REMINDER", "NOTIFICATIONS_HUB", "SENT", patient_id=req.patient_id, details={"reminder_id": rem_id, "channel": req.channel, "gateway": delivery_meta.get("gateway_id")})
     
     return {
         "status": "SUCCESS",
         "reminder_id": rem_id,
         "patient_id": req.patient_id,
         "channel": req.channel,
+        "delivery": delivery_meta,
         "sent_at": datetime.datetime.now().strftime("%I:%M %p")
     }
 
