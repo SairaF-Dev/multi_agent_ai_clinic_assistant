@@ -1,10 +1,5 @@
 # MedCare Clinic — Multi-Agent Clinical Operations Platform
 
-[![System Status](https://img.shields.io/badge/System%20Status-Production%20Ready-brightgreen)](https://github.com)
-[![Evaluation Benchmark](https://img.shields.io/badge/Evaluation%20Benchmark-65%2F65%20Passed%20(100%25)-blue)](https://github.com)
-[![Emergency Recall](https://img.shields.io/badge/Emergency%20Recall-100.0%25-red)](https://github.com)
-[![Prescription Safety](https://img.shields.io/badge/Prescription%20Safety-100.0%25%20Recall-orange)](https://github.com)
-
 **Live Production Deployment:** [https://multiagentaiclinicassistant-production.up.railway.app](https://multiagentaiclinicassistant-production.up.railway.app)  
 **Primary Core Principle:** AI handles administrative and operational friction, while licensed physicians retain clinical authority over diagnoses and treatment orders.
 

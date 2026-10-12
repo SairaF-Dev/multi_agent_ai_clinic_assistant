@@ -225,3 +225,4 @@ flowchart TD
 
 ### D. Speech-to-Text Urdu Voice Notes
 - Integrate an OpenAI Whisper or Deepgram pipeline in the patient chat input to allow illiterate or elderly patients to record voice notes in Punjabi / Urdu, automatically transcribing them into clinical structured intake JSON.
+
