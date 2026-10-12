@@ -2722,6 +2722,7 @@ def ensure_diverse_reminders_seeded():
 ensure_diverse_reminders_seeded()
 
 class SendSingleReminderRequest(BaseModel):
+    reminder_id: Optional[str] = None
     patient_id: str
     reminder_type: str = "MEDICATION_ADHERENCE"
     channel: str = "WhatsApp"
@@ -2865,12 +2866,19 @@ def dispatch_batch_care_reminders(req: BatchDispatchRemindersRequest = Body(defa
 def send_single_care_reminder(req: SendSingleReminderRequest):
     conn = get_db()
     cursor = conn.cursor()
-    rem_id = f"FOL-{int(datetime.datetime.now().timestamp()*1000)%90000+10000}"
+    rem_id = req.reminder_id or f"FOL-{int(datetime.datetime.now().timestamp()*1000)%90000+10000}"
     
-    cursor.execute("""
-        INSERT INTO follow_ups (id, patient_id, appointment_id, scheduled_date, reminder_type, channel, status, message_text, sent_at)
-        VALUES (?, ?, 'APT-ADHOC', ?, ?, ?, 'SENT', ?, datetime('now'))
-    """, (rem_id, req.patient_id, req.scheduled_date or datetime.date.today().isoformat(), req.reminder_type, req.channel, req.message_text))
+    if req.reminder_id:
+        cursor.execute("""
+            UPDATE follow_ups 
+            SET status = 'SENT', sent_at = datetime('now')
+            WHERE id = ?
+        """, (req.reminder_id,))
+    else:
+        cursor.execute("""
+            INSERT INTO follow_ups (id, patient_id, appointment_id, scheduled_date, reminder_type, channel, status, message_text, sent_at)
+            VALUES (?, ?, 'APT-ADHOC', ?, ?, ?, 'SENT', ?, datetime('now'))
+        """, (rem_id, req.patient_id, req.scheduled_date or datetime.date.today().isoformat(), req.reminder_type, req.channel, req.message_text))
     conn.commit()
     conn.close()
     

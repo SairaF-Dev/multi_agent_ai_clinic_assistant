@@ -7509,6 +7509,7 @@ ESR                12          mm/hr      0 - 15
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            reminder_id: remId,
             patient_id: patientId,
             reminder_type: remType,
             channel: channel,
